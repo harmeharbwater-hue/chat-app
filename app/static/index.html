@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Chat App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 320px;
+      background: #020617;
+      border-right: 1px solid #1f2937;
+      padding: 16px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    h1 {
+      font-size: 1.2rem;
+      margin: 0 0 8px;
+    }
+    h2 {
+      font-size: 0.9rem;
+      margin: 12px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #9ca3af;
+    }
+    label {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    input, button, select {
+      font: inherit;
+    }
+    input[type="text"], input[type="password"], input[type="email"] {
+      width: 100%;
+      padding: 6px 8px;
+      margin-top: 2px;
+      border-radius: 6px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .card {
+      background: #020617;
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid #1f2937;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .row-space {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      background: #111827;
+    }
+    #status {
+      font-size: 0.8rem;
+      color: #93c5fd;
+    }
+    #error {
+      font-size: 0.8rem;
+      color: #fca5a5;
+      white-space: pre-wrap;
+    }
+    .flex-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .contacts-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 160px;
+      overflow-y: auto;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+    }
+    .contacts-list li {
+      padding: 6px 8px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .contacts-list li:hover {
+      background: #030712;
+    }
+    .contacts-list li.active {
+      background: #111827;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #1f2937;
+      color: #9ca3af;
+    }
+    .chat-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-messages {
+      flex: 1;
+      padding: 10px 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .bubble {
+      max-width: 60%;
+      padding: 6px 10px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .bubble.me {
+      align-self: flex-end;
+      background: #2563eb;
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    .bubble.them {
+      align-self: flex-start;
+      background: #111827;
+      border-bottom-left-radius: 2px;
+    }
+    .bubble small {
+      display: block;
+      margin-top: 3px;
+      opacity: 0.7;
+      font-size: 0.7rem;
+    }
+    .chat-input {
+      padding: 10px 14px;
+      border-top: 1px solid #1f2937;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .chat-input textarea {
+      flex: 1;
+      min-height: 40px;
+      max-height: 80px;
+      resize: vertical;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 6px 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .chat-input input[type="file"] {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div>
+      <h1>Chat App</h1>
+      <div id="status">Not logged in</div>
+      <div id="error"></div>
+    </div>
+
+    <div class="card">
+      <h2>Account</h2>
+      <div class="flex-col">
+        <label>
+          Email
+          <input type="email" id="reg-email" placeholder="you@example.com">
+        </label>
+        <label>
+          Username
+          <input type="text" id="reg-username" placeholder="nickname">
+        </label>
+        <label>
+          Password
+          <input type="password" id="reg-password" placeholder="Password">
+        </label>
+        <div class="row-space">
+          <button id="btn-register">Register</button>
+          <button id="btn-login">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Contacts</h2>
+      <div class="flex-col">
+        <label>
+          Search users
+          <input type="text" id="search-query" placeholder="email or username">
+        </label>
+        <button id="btn-search">Search &amp; add first</button>
+        <div style="font-size:0.75rem;color:#9ca3af;">Search finds users; button will add the first result as a pending contact.</div>
+      </div>
+      <h2>My contacts</h2>
+      <ul id="contacts-list" class="contacts-list"></ul>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="chat-header">
+      <div>
+        <div id="chat-with" style="font-size:0.9rem;">No contact selected</div>
+        <div id="chat-sub" style="font-size:0.75rem;color:#9ca3af;">Select a contact on the left</div>
+      </div>
+      <div id="ws-status" class="badge">WS: disconnected</div>
+    </div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input">
+      <textarea id="chat-input" placeholder="Type a message" disabled></textarea>
+      <button id="btn-send" disabled>Send</button>
+      <input type="file" id="file-input" disabled>
+    </div>
+  </main>
+
+  <script>
+    const apiBase = '';
+    let token = null;
+    let currentUser = null;
+    let contacts = [];
+    let activeContactId = null;
+    let ws = null;
+
+    function setStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+    function setError(msg) {
+      document.getElementById('error').textContent = msg || '';
+    }
+    function shortTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function api(path, options = {}) {
+      const headers = options.headers || {};
+      if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+      }
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      const res = await fetch(apiBase + path, { ...options, headers });
+      if (!res.ok) {
+        let detail = res.status + ' ' + res.statusText;
+        try {
+          const data = await res.json();
+          if (data && data.detail) detail = data.detail;
+        } catch {}
+        throw new Error(detail);
+      }
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
+      return res.text();
+    }
+
+    async function register() {
+      setError('');
+      try {
+        const email = document.getElementById('reg-email').value.trim();
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        if (!email || !username || !password) throw new Error('Fill email, username, password');
+        await api('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ email, username, password })
+        });
+        setStatus('Registered. Now logging in...');
+        await login();
+      } catch (e) {
+        setError('Register: ' + e.message);
+      }
+    }
+
+    async function login() {
+      setError('');
+      try {
+        const email = document.getElementById('reg-email').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const body = new URLSearchParams();
+        body.set('username', email);
+        body.set('password', password);
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error((data && data.detail) || res.statusText);
+        }
+        const data = await res.json();
+        token = data.access_token;
+        currentUser = await api('/auth/me');
+        setStatus('Logged in as ' + currentUser.username);
+        document.getElementById('chat-input').disabled = false;
+        document.getElementById('btn-send').disabled = false;
+        document.getElementById('file-input').disabled = false;
+        await loadContacts();
+        connectWs();
+      } catch (e) {
+        setError('Login: ' + e.message);
+      }
+    }
+
+    async function loadContacts() {
+      try {
+        contacts = await api('/contacts');
+        renderContacts();
+      } catch (e) {
+        setError('Load contacts: ' + e.message);
+      }
+    }
+
+    function renderContacts() {
+      const ul = document.getElementById('contacts-list');
+      ul.innerHTML = '';
+      contacts.forEach(c => {
+        const li = document.createElement('li');
+        li.dataset.id = c.contact_user_id;
+        li.className = (activeContactId === c.contact_user_id) ? 'active' : '';
+        li.innerHTML = `
+          <span>User #${c.contact_user_id}</span>
+          <span class="badge">${c.status}</span>
+        `;
+        li.onclick = () => {
+          activeContactId = c.contact_user_id;
+          renderContacts();
+          loadConversation();
+        };
+        ul.appendChild(li);
+      });
+    }
+
+    async function searchAndAddFirst() {
+      setError('');
+      try {
+        const q = document.getElementById('search-query').value.trim();
+        if (!q) throw new Error('Enter a search query');
+        const results = await api('/contacts/search_users?q=' + encodeURIComponent(q));
+        if (!results.length) {
+          setError('No users found');
+          return;
+        }
+        const first = results[0];
+        await api('/contacts', {
+          method: 'POST',
+          body: JSON.stringify({ target_user_id: first.id })
+        });
+        await loadContacts();
+        setError('');
+      } catch (e) {
+        setError('Search/add: ' + e.message);
+      }
+    }
+
+    async function loadConversation() {
+      if (!activeContactId) return;
+      try {
+        const messages = await api('/messages/' + activeContactId);
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '';
+        messages.forEach(m => {
+          const div = document.createElement('div');
+          const isMe = m.sender_id === currentUser.id;
+          div.className = 'bubble ' + (isMe ? 'me' : 'them');
+          div.innerHTML = `
+            <div>${m.body}</div>
+            <small>${isMe ? 'You' : 'Them'} · ${shortTime(m.created_at)}</small>
+          `;
+          container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+        document.getElementById('chat-with').textContent = 'Chat with user #' + activeContactId;
+        document.getElementById('chat-sub').textContent = 'Messages are encrypted at rest on the server.';
+      } catch (e) {
+        setError('Load conversation: ' + e.message);
+      }
+    }
+
+    async function sendMessage() {
+      if (!activeContactId) {
+        setError('Pick a contact first');
+        return;
+      }
+      const textarea = document.getElementById('chat-input');
+      const body = textarea.value.trim();
+      if (!body) return;
+      try {
+        await api('/messages', {
+          method: 'POST',
+          body: JSON.stringify({ to_user_id: activeContactId, body })
+        });
+        textarea.value = '';
+        await loadConversation();
+      } catch (e) {
+        setError('Send: ' + e.message);
+      }
+    }
+
+    async function sendFile() {
+      if (!activeContactId) {
+        setError('Pick a contact first');
+        return;
+      }
+      const input = document.getElementById('file-input');
+      if (!input.files.length) return;
+      const file = input.files[0];
+      try {
+        const form = new FormData();
+        form.append('to_user_id', String(activeContactId));
+        form.append('file', file);
+        await fetch('/files/upload?to_user_id=' + encodeURIComponent(activeContactId), {
+          method: 'POST',
+          headers: token ? { 'Authorization': 'Bearer ' + token } : {},
+          body: form
+        }).then(res => {
+          if (!res.ok) return res.json().then(d => { throw new Error(d.detail || res.statusText); });
+        });
+        input.value = '';
+        await loadConversation();
+      } catch (e) {
+        setError('File upload: ' + e.message);
+      }
+    }
+
+    function connectWs() {
+      if (!token) return;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') +
+        location.host + '/ws/chat?token=' + encodeURIComponent(token);
+      ws = new WebSocket(url);
+      const wsStatus = document.getElementById('ws-status');
+      ws.onopen = () => { wsStatus.textContent = 'WS: connected'; };
+      ws.onclose = () => { wsStatus.textContent = 'WS: disconnected'; };
+      ws.onerror = () => { wsStatus.textContent = 'WS: error'; };
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'message') {
+            if (msg.from_user_id === activeContactId || msg.to_user_id === activeContactId) {
+              loadConversation();
+            }
+          }
+        } catch {}
+      };
+    }
+
+    document.getElementById('btn-register').onclick = register;
+    document.getElementById('btn-login').onclick = login;
+    document.getElementById('btn-search').onclick = searchAndAddFirst;
+    document.getElementById('btn-send').onclick = sendMessage;
+    document.getElementById('chat-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    document.getElementById('file-input').onchange = sendFile;
+  </script>
+</body>
+</html>
+
