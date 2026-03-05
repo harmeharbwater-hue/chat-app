@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -28,6 +29,11 @@ def create_access_token(subject: int, expires_delta: Optional[timedelta] = None)
     to_encode = {"sub": str(subject), "exp": expire}
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
+
+
+def hash_reset_token(token: str) -> str:
+    """Hash a reset token for storage. Use same input for lookup."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def decode_access_token(token: str) -> Optional[TokenData]:

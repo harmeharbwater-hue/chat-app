@@ -69,6 +69,18 @@
       opacity: 0.6;
       cursor: default;
     }
+    .link-btn {
+      background: none;
+      color: #93c5fd;
+      padding: 0;
+      font-size: 0.8rem;
+      text-decoration: underline;
+    }
+    .link-btn:hover { color: #bfdbfe; }
+    .secondary-btn {
+      background: #374151;
+      color: #e5e7eb;
+    }
     .card {
       background: #020617;
       border-radius: 10px;
@@ -229,6 +241,25 @@
           <button id="btn-register">Register</button>
           <button id="btn-login">Login</button>
         </div>
+        <div style="margin-top:6px;">
+          <button type="button" id="btn-forgot-password" class="link-btn">Forgot password?</button>
+        </div>
+        <div id="forgot-password-section" class="flex-col" style="display:none; margin-top:8px; padding-top:8px; border-top:1px solid #1f2937;">
+          <label>Email for reset link <input type="email" id="forgot-email" placeholder="you@example.com"></label>
+          <div class="row-space">
+            <button id="btn-send-reset">Send reset link</button>
+            <button type="button" id="btn-cancel-forgot" class="secondary-btn">Cancel</button>
+          </div>
+          <div id="reset-link-message" style="font-size:0.75rem; color:#93c5fd; word-break:break-all; display:none;"></div>
+        </div>
+        <div id="reset-password-section" class="card" style="display:none; margin-top:10px; background:#0f172a;">
+          <h2>Set new password</h2>
+          <div class="flex-col">
+            <label>New password <input type="password" id="new-password" placeholder="Min 6 characters"></label>
+            <label>Confirm password <input type="password" id="new-password-confirm" placeholder="Same again"></label>
+            <button id="btn-submit-reset">Set new password</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -319,7 +350,12 @@
         setStatus('Registered. Now logging in...');
         await login();
       } catch (e) {
-        setError('Register: ' + e.message);
+        const msg = e.message || '';
+        if (msg.includes('already registered') || msg.includes('already exists')) {
+          setError('An account with this email or username already exists. Use the Login button with your email and password.');
+        } else {
+          setError('Register: ' + msg);
+        }
       }
     }
 
@@ -328,29 +364,40 @@
       try {
         const email = document.getElementById('reg-email').value.trim();
         const password = document.getElementById('reg-password').value;
+        if (!email || !password) {
+          setError('Enter your email and password to log in.');
+          return;
+        }
         const body = new URLSearchParams();
-        body.set('username', email);
+        body.set('username', email);  // backend expects email in "username" field
         body.set('password', password);
-        const res = await fetch('/auth/login', {
+        const res = await fetch(apiBase + '/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error((data && data.detail) || res.statusText);
+          const detail = (data && data.detail) || res.statusText;
+          if (res.status === 401) {
+            setError('Login failed: wrong email or password. Use the same email and password you used when you registered.');
+          } else {
+            setError('Login: ' + detail);
+          }
+          return;
         }
         const data = await res.json();
         token = data.access_token;
         currentUser = await api('/auth/me');
         setStatus('Logged in as ' + currentUser.username);
+        setError('');
         document.getElementById('chat-input').disabled = false;
         document.getElementById('btn-send').disabled = false;
         document.getElementById('file-input').disabled = false;
         await loadContacts();
         connectWs();
       } catch (e) {
-        setError('Login: ' + e.message);
+        setError('Login: ' + (e.message || 'Network or server error'));
       }
     }
 
@@ -500,8 +547,107 @@
       };
     }
 
+    let resetTokenFromUrl = null;
+
+    function showResetPasswordSection() {
+      document.getElementById('reset-password-section').style.display = 'block';
+      document.getElementById('forgot-password-section').style.display = 'none';
+    }
+    function hideResetPasswordSection() {
+      document.getElementById('reset-password-section').style.display = 'none';
+      if (resetTokenFromUrl) {
+        resetTokenFromUrl = null;
+        window.history.replaceState({}, document.title, window.location.pathname || '/');
+      }
+    }
+
+    function showForgotSection() {
+      document.getElementById('forgot-password-section').style.display = 'flex';
+      document.getElementById('reset-link-message').style.display = 'none';
+      document.getElementById('reset-link-message').textContent = '';
+    }
+    function hideForgotSection() {
+      document.getElementById('forgot-password-section').style.display = 'none';
+    }
+
+    async function sendForgotPassword() {
+      setError('');
+      const email = document.getElementById('forgot-email').value.trim();
+      if (!email) {
+        setError('Enter your email address.');
+        return;
+      }
+      try {
+        const res = await fetch(apiBase + '/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        const msgEl = document.getElementById('reset-link-message');
+        msgEl.style.display = 'block';
+        msgEl.textContent = data.message || 'Done.';
+        if (data.reset_link) {
+          msgEl.innerHTML = data.message + ' <br><a href="' + data.reset_link + '" style="color:#93c5fd;">Open reset link</a> (or copy from address bar after opening).';
+        }
+      } catch (e) {
+        setError('Forgot password: ' + (e.message || 'Request failed'));
+      }
+    }
+
+    async function submitResetPassword() {
+      setError('');
+      const newPass = document.getElementById('new-password').value;
+      const confirmPass = document.getElementById('new-password-confirm').value;
+      if (!resetTokenFromUrl) {
+        setError('Reset link invalid or expired. Request a new link from Forgot password.');
+        return;
+      }
+      if (newPass.length < 6) {
+        setError('Password must be at least 6 characters.');
+        return;
+      }
+      if (newPass !== confirmPass) {
+        setError('Passwords do not match.');
+        return;
+      }
+      try {
+        const res = await fetch(apiBase + '/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: resetTokenFromUrl, new_password: newPass })
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error((d && d.detail) || res.statusText);
+        }
+        const data = await res.json();
+        setError('');
+        setStatus(data.message || 'Password updated. You can now log in.');
+        document.getElementById('new-password').value = '';
+        document.getElementById('new-password-confirm').value = '';
+        hideResetPasswordSection();
+      } catch (e) {
+        setError('Reset password: ' + (e.message || 'Request failed'));
+      }
+    }
+
+    function initFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('reset_token');
+      if (token) {
+        resetTokenFromUrl = token;
+        showResetPasswordSection();
+      }
+    }
+
     document.getElementById('btn-register').onclick = register;
     document.getElementById('btn-login').onclick = login;
+    document.getElementById('btn-forgot-password').onclick = showForgotSection;
+    document.getElementById('btn-cancel-forgot').onclick = hideForgotSection;
+    document.getElementById('btn-send-reset').onclick = sendForgotPassword;
+    document.getElementById('btn-submit-reset').onclick = submitResetPassword;
+    initFromUrl();
     document.getElementById('btn-search').onclick = searchAndAddFirst;
     document.getElementById('btn-send').onclick = sendMessage;
     document.getElementById('chat-input').addEventListener('keydown', (e) => {
